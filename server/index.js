@@ -167,6 +167,8 @@ app.post('/api/auth/request', async (req, res) => {
 });
 
 // 2. Generate Account
+const totp = require('totp-generator');
+
 app.post('/api/generate', async (req, res) => {
     const { userId, platform } = req.body;
 
@@ -185,12 +187,25 @@ app.post('/api/generate', async (req, res) => {
                 throw new Error('No stock available');
             }
 
+            // Generate LIVE 2FA Code if it's Rockstar and has a secret
+            let finalTwoFactorCode = availableAccount.twoFactorCode;
+            if (platform === 'Rockstar' && finalTwoFactorCode && finalTwoFactorCode.length > 10) {
+                try {
+                    finalTwoFactorCode = totp(finalTwoFactorCode);
+                } catch(e) {
+                    console.error('Failed to generate TOTP:', e);
+                }
+            } else if (platform === 'Discord') {
+                finalTwoFactorCode = "Login to email at https://swiftmail.cc/ to get your new login activation link.";
+            }
+
             const updated = await tx.account.update({
                 where: { id: availableAccount.id },
                 data: {
                     status: 'TAKEN',
                     takenById: user.id,
-                    takenAt: new Date()
+                    takenAt: new Date(),
+                    twoFactorCode: finalTwoFactorCode // Store the live code or discord msg so history shows it
                 }
             });
 
