@@ -428,6 +428,8 @@ function AdminDashboard({ user, onLogout }) {
     
     playSound('type');
     setIsAdding(true);
+    
+    const lines = bulkInput.split('\n').filter(l => l.trim() !== '');
     const accounts = lines.map(line => {
       let username = '';
       let password = '';
