@@ -205,6 +205,16 @@ app.post('/api/generate', async (req, res) => {
                 }
             } else if (platform === 'Discord') {
                 finalTwoFactorCode = "Login to email at https://swiftmail.cc/ to get your new login activation link.";
+                
+                // Fire off the background Puppeteer auto-verifier if it's a known format
+                // the username is usually email:password or just email
+                const emailStr = availableAccount.username.split(':')[0];
+                if (emailStr && emailStr.includes('@')) {
+                    const { verifyDiscordEmail } = require('./discordVerify');
+                    verifyDiscordEmail(emailStr).then(res => {
+                        console.log(`Auto verify for ${emailStr}:`, res);
+                    }).catch(console.error);
+                }
             }
 
             const updated = await tx.account.update({

@@ -18,7 +18,8 @@
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "otpauth": "^9.5.1"
+    "otpauth": "^9.5.1",
+    "puppeteer": "^25.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
