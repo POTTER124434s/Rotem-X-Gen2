@@ -345,8 +345,21 @@ function UserDashboard({ user, onLogout }) {
                       <span className="mono" style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>{acc.password}</span>
                     </div>
                   </td>
-                  <td className="mono" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', height: '100%' }}>
-                    {acc.twoFactorCode || '-'}
+                  <td className="mono" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', height: '100%', position: 'relative' }}>
+                    <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {acc.twoFactorCode ? (
+                        <button 
+                          className="btn-minimal" 
+                          style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderColor: 'var(--text-main)', color: 'var(--text-main)' }}
+                          onClick={() => {
+                            window.alert(`2FA Code / Link:\n\n${acc.twoFactorCode}`);
+                          }}
+                        >
+                          SHOW 2FA
+                        </button>
+                      ) : '-'}
+                    </div>
+
                     <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
                       {acc.platform === 'Rockstar' && (
                         <button 

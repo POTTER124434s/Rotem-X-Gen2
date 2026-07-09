@@ -149,6 +149,7 @@ select.input-minimal option { background: var(--panel-bg); color: var(--text-mai
 .minimal-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 .minimal-table th {
   text-align: left;
@@ -162,6 +163,8 @@ select.input-minimal option { background: var(--panel-bg); color: var(--text-mai
   padding: 1.5rem 0;
   border-bottom: 1px solid var(--panel-border);
   font-size: 1.1rem;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 .minimal-table tr:last-child td { border-bottom: none; }
 .minimal-table tr:hover td { background: rgba(255,255,255,0.02); }
