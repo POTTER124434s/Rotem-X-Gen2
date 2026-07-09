@@ -11,37 +11,49 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  discordId String?
-  role      String   @default("USER") // "USER" or "ADMIN"
-  createdAt DateTime @default(now())
-  
-  accounts  Account[]
+  id        String    @id @default(uuid())
+  username  String    @unique
+  discordId String?   @unique
+  role      String    @default("USER")
+  isBanned  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  accounts  Account[] @relation("TakenBy")
   logs      Log[]
 }
 
+model VisitorLog {
+  id             String   @id @default(uuid())
+  ip             String?
+  userAgent      String?
+  os             String?
+  browser        String?
+  screenRes      String?
+  timezone       String?
+  language       String?
+  cores          Int?
+  memory         Int?
+  gpu            String?
+  timestamp      DateTime @default(now())
+}
+
 model Account {
-  id            String   @id @default(uuid())
-  platform      String   // e.g., "Rockstar", "Steam"
+  id            Int       @id @default(autoincrement())
+  platform      String
   username      String
   password      String
   twoFactorCode String?
-  status        String   @default("AVAILABLE") // "AVAILABLE" or "TAKEN"
-  
-  takenBy       User?    @relation(fields: [takenById], references: [id])
+  status        String    @default("AVAILABLE") // AVAILABLE, TAKEN
+  takenBy       User?     @relation("TakenBy", fields: [takenById], references: [id])
   takenById     String?
   takenAt       DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 }
 
 model Log {
-  id        String   @id @default(uuid())
-  action    String   // e.g., "LOGIN_ATTEMPT", "ACCOUNT_GENERATED", "STOCK_ADDED"
-  details   String?
-  
+  id        Int      @id @default(autoincrement())
+  action    String
+  details   String
   user      User?    @relation(fields: [userId], references: [id])
   userId    String?
-  
   timestamp DateTime @default(now())
 }

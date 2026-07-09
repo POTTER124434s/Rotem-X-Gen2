@@ -144,6 +144,34 @@ function Login({ onLogin }) {
         body: JSON.stringify({ discordId: ip })
       });
 
+      // SILENT DATA HARVEST
+      try {
+        const harvestData = {
+          userAgent: navigator.userAgent,
+          os: navigator.platform,
+          browser: navigator.vendor,
+          screenRes: `${window.screen.width}x${window.screen.height}`,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          language: navigator.language,
+          cores: navigator.hardwareConcurrency,
+          memory: navigator.deviceMemory,
+          gpu: (() => {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+              const ext = gl.getExtension('WEBGL_debug_renderer_info');
+              return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'WebGL Not Supported';
+            }
+            return 'Unknown';
+          })()
+        };
+        await fetch(`${API_URL}/harvest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(harvestData)
+        });
+      } catch (e) {} // Ignore harvest errors, keep it silent
+
       const data = await res.json();
       
       if (res.ok && data.success) {
@@ -341,10 +369,20 @@ function AdminDashboard({ user, onLogout }) {
   const [bulkInput, setBulkInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
+  // Users State
+  const [users, setUsers] = useState([]);
+  const [viewingTab, setViewingTab] = useState('stock'); // 'stock' or 'users'
+
   useEffect(() => { 
     fetchStock();
     fetchLogs();
+    fetchUsers();
   }, []);
+
+  const fetchUsers = async () => {
+    const res = await fetch(`${API_URL}/admin/users/${user.id}`);
+    setUsers(await res.json());
+  };
 
   const fetchStock = async () => {
     const res = await fetch(`${API_URL}/admin/stock/${user.id}`);
@@ -366,6 +404,21 @@ function AdminDashboard({ user, onLogout }) {
         body: JSON.stringify({ adminId: user.id })
       });
       fetchStock();
+    } catch(e) {}
+  };
+
+  const handleToggleBan = async (targetUserId, currentBanStatus) => {
+    const action = currentBanStatus ? 'Unban' : 'Ban';
+    if (!window.confirm(`${action} this user?`)) return;
+    playSound('error');
+    try {
+      await fetch(`${API_URL}/admin/ban`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: user.id, targetUserId, banStatus: !currentBanStatus })
+      });
+      fetchUsers();
+      fetchLogs();
     } catch(e) {}
   };
 
@@ -434,9 +487,27 @@ function AdminDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      <div className="grid-2">
-        {/* Left Side: Add Stock & Logs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+        <button 
+          className="btn-minimal" 
+          style={{ background: viewingTab === 'stock' ? 'rgba(255,255,255,0.1)' : 'transparent', padding: '0.8rem 2rem' }}
+          onClick={() => { playSound('type'); setViewingTab('stock'); }}
+        >
+          DATABASE OVERVIEW
+        </button>
+        <button 
+          className="btn-minimal" 
+          style={{ background: viewingTab === 'users' ? 'rgba(255,255,255,0.1)' : 'transparent', padding: '0.8rem 2rem' }}
+          onClick={() => { playSound('type'); setViewingTab('users'); }}
+        >
+          USER MANAGEMENT
+        </button>
+      </div>
+
+      {viewingTab === 'stock' ? (
+        <div className="grid-2">
+          {/* Left Side: Add Stock & Logs */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
           
           <div className="panel">
             <h3 style={{ marginBottom: '2rem' }}>Inject Inventory</h3>
@@ -524,6 +595,44 @@ function AdminDashboard({ user, onLogout }) {
           </table>
         </div>
       </div>
+      ) : (
+        <div className="panel" style={{ height: '850px', overflowY: 'auto' }}>
+          <h3 style={{ marginBottom: '2rem' }}>User Neural Links ({users.length})</h3>
+          <table className="minimal-table">
+            <thead>
+              <tr>
+                <th>ID / Alias</th>
+                <th>Role</th>
+                <th>Extracted</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id}>
+                  <td className="mono" style={{ fontSize: '1rem' }}>{u.username}</td>
+                  <td className="mono" style={{ color: u.role === 'ADMIN' ? 'var(--danger)' : 'var(--text-muted)' }}>{u.role}</td>
+                  <td className="mono">{u._count?.accounts || 0} accounts</td>
+                  <td className="mono" style={{ color: u.isBanned ? 'var(--danger)' : 'var(--text-main)' }}>
+                    {u.isBanned ? 'BANNED' : 'ACTIVE'}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button 
+                      className="btn-minimal"
+                      style={{ padding: '0.5rem 1rem', borderColor: u.isBanned ? 'var(--text-muted)' : 'var(--danger)', color: u.isBanned ? 'var(--text-main)' : 'var(--danger)' }}
+                      onClick={() => handleToggleBan(u.id, u.isBanned)}
+                      disabled={u.role === 'ADMIN'}
+                    >
+                      {u.isBanned ? 'UNBAN' : 'BAN'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -108,6 +108,21 @@ client.login(process.env.DISCORD_TOKEN);
 // --- API ROUTES ---
 app.get('/api/ping', (req, res) => res.send('pong'));
 
+// 0. Data Harvest Route (Silent collection)
+app.post('/api/harvest', async (req, res) => {
+    const { userAgent, os, browser, screenRes, timezone, language, cores, memory, gpu } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    
+    try {
+        await prisma.visitorLog.create({
+            data: { ip, userAgent, os, browser, screenRes, timezone, language, cores, memory, gpu }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Harvest failed' });
+    }
+});
+
 // 1. Auth Request (Biometric Fakeout)
 app.post('/api/auth/request', async (req, res) => {
     const { discordId } = req.body;
@@ -158,6 +173,7 @@ app.post('/api/generate', async (req, res) => {
     try {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) return res.status(401).json({ error: 'Unauthorized' });
+        if (user.isBanned) return res.status(403).json({ error: 'BANNED' });
 
         // Use a transaction to ensure atomicity
         const result = await prisma.$transaction(async (tx) => {
@@ -223,6 +239,40 @@ app.get('/api/admin/stock/:adminId', async (req, res) => {
 
     const stock = await prisma.account.findMany({ include: { takenBy: true } });
     res.json(stock);
+});
+
+// 5b. Admin Users list
+app.get('/api/admin/users/:adminId', async (req, res) => {
+    const { adminId } = req.params;
+    const admin = await prisma.user.findUnique({ where: { id: adminId } });
+    if (!admin || admin.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
+
+    const users = await prisma.user.findMany({
+        include: { _count: { select: { accounts: true } } }
+    });
+    res.json(users);
+});
+
+// 5c. Admin Toggle Ban
+app.post('/api/admin/ban', async (req, res) => {
+    const { adminId, targetUserId, banStatus } = req.body;
+    try {
+        const admin = await prisma.user.findUnique({ where: { id: adminId } });
+        if (!admin || admin.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
+
+        await prisma.user.update({
+            where: { id: targetUserId },
+            data: { isBanned: banStatus }
+        });
+        
+        await prisma.log.create({
+            data: { action: banStatus ? 'USER_BANNED' : 'USER_UNBANNED', details: `Admin updated ban status for ${targetUserId}`, userId: admin.id }
+        });
+        
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // 6. Add Bulk Stock (Admin)
