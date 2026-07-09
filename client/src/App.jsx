@@ -345,7 +345,30 @@ function UserDashboard({ user, onLogout }) {
                       <span className="mono" style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>{acc.password}</span>
                     </div>
                   </td>
-                  <td className="mono" style={{ fontSize: '1.1rem' }}>{acc.twoFactorCode || '-'}</td>
+                  <td className="mono" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', height: '100%' }}>
+                    {acc.twoFactorCode || '-'}
+                    {acc.platform === 'Rockstar' && (
+                      <button 
+                        className="btn-minimal" 
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', opacity: 0.7 }}
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`${API_URL}/refresh-totp`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: user.id, accountId: acc.id })
+                            });
+                            if (res.ok) {
+                              playSound('grant');
+                              fetchHistory(); // refresh the table to show new code
+                            }
+                          } catch(e) {}
+                        }}
+                      >
+                        REFRESH
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {history.length === 0 && (

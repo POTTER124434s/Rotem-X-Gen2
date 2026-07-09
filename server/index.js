@@ -236,6 +236,30 @@ app.get('/api/history/:userId', async (req, res) => {
     res.json(accounts);
 });
 
+// 3b. Refresh TOTP Code
+app.post('/api/refresh-totp', async (req, res) => {
+    const { userId, accountId } = req.body;
+    try {
+        const account = await prisma.account.findUnique({ where: { id: accountId } });
+        if (!account || account.takenById !== userId || account.platform !== 'Rockstar') {
+            return res.status(403).json({ error: 'Cannot refresh this code' });
+        }
+
+        // Generate a new LIVE code using the ORIGINAL secret
+        let freshCode = null;
+        if (account.twoFactorCode && account.twoFactorCode.length > 10) {
+            try {
+                freshCode = totp(account.twoFactorCode);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        res.json({ success: true, newCode: freshCode });
+    } catch(err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 4. Admin Logs
 app.get('/api/admin/logs/:adminId', async (req, res) => {
     const { adminId } = req.params;
