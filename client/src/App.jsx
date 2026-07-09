@@ -428,14 +428,32 @@ function AdminDashboard({ user, onLogout }) {
     
     playSound('type');
     setIsAdding(true);
-    const lines = bulkInput.split('\n').filter(l => l.trim() !== '');
     const accounts = lines.map(line => {
-      const parts = line.split(':');
-      return {
-        username: parts[0] || '',
-        password: parts[1] || '',
-        twoFactorCode: parts[2] || null
-      };
+      let username = '';
+      let password = '';
+      let twoFactorCode = null;
+
+      if (line.includes('Steam Account:')) {
+        // Steam format: Steam Account:user|Password:pass|Email:email|Password:epass
+        const matchUser = line.match(/Steam Account:([^|]+)/);
+        const matchPass = line.match(/Password:([^|]+)/);
+        if (matchUser) username = matchUser[1].trim();
+        if (matchPass) password = matchPass[1].trim();
+      } else if (line.split(':').length >= 4) {
+        // Rockstar 4-part format: Email:Password:InGameName:2FA
+        const parts = line.split(':');
+        username = parts[0].trim();
+        password = parts[1].trim();
+        twoFactorCode = parts[3].trim();
+      } else {
+        // Standard user:pass or user:pass:2fa
+        const parts = line.split(':');
+        username = parts[0] ? parts[0].trim() : '';
+        password = parts[1] ? parts[1].trim() : '';
+        twoFactorCode = parts[2] ? parts[2].trim() : null;
+      }
+
+      return { username, password, twoFactorCode };
     });
 
     try {
