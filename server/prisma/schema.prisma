@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  discordId String?
+  role      String   @default("USER") // "USER" or "ADMIN"
+  createdAt DateTime @default(now())
+  
+  accounts  Account[]
+  logs      Log[]
+}
+
+model Account {
+  id            String   @id @default(uuid())
+  platform      String   // e.g., "Rockstar", "Steam"
+  username      String
+  password      String
+  twoFactorCode String?
+  status        String   @default("AVAILABLE") // "AVAILABLE" or "TAKEN"
+  
+  takenBy       User?    @relation(fields: [takenById], references: [id])
+  takenById     String?
+  takenAt       DateTime?
+  createdAt     DateTime @default(now())
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  action    String   // e.g., "LOGIN_ATTEMPT", "ACCOUNT_GENERATED", "STOCK_ADDED"
+  details   String?
+  
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  
+  timestamp DateTime @default(now())
+}
