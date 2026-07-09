@@ -355,6 +355,56 @@ app.delete('/api/admin/stock/:id', async (req, res) => {
     }
 });
 
+// 7b. Clear ALL Stock (Admin)
+app.delete('/api/admin/stock-all', async (req, res) => {
+    const { adminId } = req.body;
+    try {
+        const admin = await prisma.user.findUnique({ where: { id: adminId } });
+        if (!admin || admin.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
+
+        await prisma.account.deleteMany({});
+        await prisma.log.create({
+            data: { action: 'STOCK_CLEARED', details: `Admin wiped the entire database`, userId: admin.id }
+        });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 8. Return Account to Stock (User or Admin)
+app.post('/api/return-stock', async (req, res) => {
+    const { userId, accountId } = req.body;
+    try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const account = await prisma.account.findUnique({ where: { id: accountId } });
+        
+        // Admins can return ANY account, regular users can only return their OWN account
+        if (!account || (user.role !== 'ADMIN' && account.takenById !== user.id)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        await prisma.account.update({
+            where: { id: accountId },
+            data: {
+                status: 'AVAILABLE',
+                takenById: null,
+                takenAt: null
+            }
+        });
+
+        await prisma.log.create({
+            data: { action: 'ACCOUNT_RETURNED', details: `${user.username} returned ${account.platform} account to stock`, userId: user.id }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Serve React Frontend (Unified Deployment)
 app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res) => {

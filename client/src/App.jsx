@@ -347,27 +347,49 @@ function UserDashboard({ user, onLogout }) {
                   </td>
                   <td className="mono" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', height: '100%' }}>
                     {acc.twoFactorCode || '-'}
-                    {acc.platform === 'Rockstar' && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+                      {acc.platform === 'Rockstar' && (
+                        <button 
+                          className="btn-minimal" 
+                          style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', opacity: 0.7 }}
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`${API_URL}/refresh-totp`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ userId: user.id, accountId: acc.id })
+                              });
+                              if (res.ok) {
+                                playSound('grant');
+                                fetchHistory();
+                              }
+                            } catch(e) {}
+                          }}
+                        >
+                          REFRESH
+                        </button>
+                      )}
                       <button 
                         className="btn-minimal" 
-                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', opacity: 0.7 }}
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderColor: 'var(--danger)', color: 'var(--danger)', opacity: 0.8 }}
                         onClick={async () => {
+                          if(!window.confirm("Return this account to stock? You will lose access to it.")) return;
                           try {
-                            const res = await fetch(`${API_URL}/refresh-totp`, {
+                            const res = await fetch(`${API_URL}/return-stock`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ userId: user.id, accountId: acc.id })
                             });
                             if (res.ok) {
-                              playSound('grant');
-                              fetchHistory(); // refresh the table to show new code
+                              playSound('type');
+                              fetchHistory();
                             }
                           } catch(e) {}
                         }}
                       >
-                        REFRESH
+                        RETURN
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -530,21 +552,45 @@ function AdminDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-        <button 
-          className="btn-minimal" 
-          style={{ background: viewingTab === 'stock' ? 'rgba(255,255,255,0.1)' : 'transparent', padding: '0.8rem 2rem' }}
-          onClick={() => { playSound('type'); setViewingTab('stock'); }}
-        >
-          DATABASE OVERVIEW
-        </button>
-        <button 
-          className="btn-minimal" 
-          style={{ background: viewingTab === 'users' ? 'rgba(255,255,255,0.1)' : 'transparent', padding: '0.8rem 2rem' }}
-          onClick={() => { playSound('type'); setViewingTab('users'); }}
-        >
-          USER MANAGEMENT
-        </button>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button 
+            className="btn-minimal" 
+            style={{ background: viewingTab === 'stock' ? 'rgba(255,255,255,0.1)' : 'transparent', padding: '0.8rem 2rem' }}
+            onClick={() => { playSound('type'); setViewingTab('stock'); }}
+          >
+            DATABASE OVERVIEW
+          </button>
+          <button 
+            className="btn-minimal" 
+            style={{ background: viewingTab === 'users' ? 'rgba(255,255,255,0.1)' : 'transparent', padding: '0.8rem 2rem' }}
+            onClick={() => { playSound('type'); setViewingTab('users'); }}
+          >
+            USER MANAGEMENT
+          </button>
+        </div>
+        
+        {viewingTab === 'stock' && (
+          <button 
+            className="btn-minimal" 
+            style={{ borderColor: 'var(--danger)', color: 'var(--danger)', padding: '0.8rem 2rem' }}
+            onClick={async () => {
+              if(!window.confirm('WARNING: THIS WILL DELETE ALL ACCOUNTS IN THE DATABASE. ARE YOU SURE?')) return;
+              playSound('error');
+              try {
+                await fetch(`${API_URL}/admin/stock-all`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ adminId: user.id })
+                });
+                fetchStock();
+                fetchLogs();
+              } catch(e){}
+            }}
+          >
+            PURGE ALL STOCK
+          </button>
+        )}
       </div>
 
       {viewingTab === 'stock' ? (
@@ -613,7 +659,7 @@ function AdminDashboard({ user, onLogout }) {
                 <th>Platform</th>
                 <th>Identifier</th>
                 <th>Status</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -624,7 +670,26 @@ function AdminDashboard({ user, onLogout }) {
                   <td className="mono" style={{ color: acc.status === 'AVAILABLE' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '1rem' }}>
                     {acc.status}
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    {acc.status === 'TAKEN' && (
+                      <button 
+                        onClick={async () => {
+                          if(!window.confirm("Return account to stock?")) return;
+                          try {
+                            await fetch(`${API_URL}/return-stock`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: user.id, accountId: acc.id })
+                            });
+                            fetchStock();
+                            fetchLogs();
+                          } catch(e){}
+                        }} 
+                        style={{ background: 'transparent', border: '1px solid var(--text-main)', color: 'var(--text-main)', cursor: 'pointer', padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                      >
+                        RESTORE
+                      </button>
+                    )}
                     <button 
                       onClick={() => handleDelete(acc.id)} 
                       style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', opacity: 0.7, padding: '0.5rem' }}
