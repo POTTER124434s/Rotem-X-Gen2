@@ -167,7 +167,7 @@ app.post('/api/auth/request', async (req, res) => {
 });
 
 // 2. Generate Account
-const totp = require('totp-generator');
+const OTPAuth = require('otpauth');
 
 app.post('/api/generate', async (req, res) => {
     const { userId, platform } = req.body;
@@ -191,7 +191,15 @@ app.post('/api/generate', async (req, res) => {
             let finalTwoFactorCode = availableAccount.twoFactorCode;
             if (platform === 'Rockstar' && finalTwoFactorCode && finalTwoFactorCode.length > 10) {
                 try {
-                    finalTwoFactorCode = totp(finalTwoFactorCode);
+                    let totp = new OTPAuth.TOTP({
+                        issuer: "Rockstar",
+                        label: "Account",
+                        algorithm: "SHA1",
+                        digits: 6,
+                        period: 30,
+                        secret: finalTwoFactorCode.replace(/\s+/g, '') // remove spaces from secret
+                    });
+                    finalTwoFactorCode = totp.generate();
                 } catch(e) {
                     console.error('Failed to generate TOTP:', e);
                 }
@@ -249,7 +257,15 @@ app.post('/api/refresh-totp', async (req, res) => {
         let freshCode = null;
         if (account.twoFactorCode && account.twoFactorCode.length > 10) {
             try {
-                freshCode = totp(account.twoFactorCode);
+                let totp = new OTPAuth.TOTP({
+                    issuer: "Rockstar",
+                    label: "Account",
+                    algorithm: "SHA1",
+                    digits: 6,
+                    period: 30,
+                    secret: account.twoFactorCode.replace(/\s+/g, '')
+                });
+                freshCode = totp.generate();
             } catch(e) {
                 console.error(e);
             }
